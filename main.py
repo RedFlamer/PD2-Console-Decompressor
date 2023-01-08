@@ -10,7 +10,7 @@ import zlib
 endian = "little"
 
 for filename in os.scandir("./assets"):
-    if filename.is_file() and (filename.path.find("_h.bundle") != -1 or (filename.path.find("stream_") == -1 or filename.path.find("all_") == -1) and filename.path.find(".bundle") != 1): # package headers/data or all_x/stream_x headers
+    if filename.is_file() and (filename.path.find("_h.bundle") != -1 or filename.path.find("stream_") == -1 and filename.path.find("all_") == -1 and filename.path.find(".bundle") != 1): # package headers/data or all_x/stream_x headers
         print(filename.path)
 
         with open(filename.path, 'rb') as bundle, open(filename.path.replace("assets", "decompressed_assets"), 'wb') as new_bundle:
