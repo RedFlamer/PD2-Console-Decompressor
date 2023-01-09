@@ -1,11 +1,12 @@
 import os
 import zlib
 
-# Header format
-# uint32 total_uncompressed_size
+# Header:
+# uint64 total_uncompressed_size
 # For every chunk:
-# uint32 previous_chunk_size (once decompressed if last chunk was compressed, otherwise not present)
-# uint32 chunk_size (size of next zlib chunk)
+# uint32 compressed_chunk_size (size of next zlib chunk)
+# byte[] chunk
+# uint32 uncompressed_chunk_size (present only if last chunk was compressed)
 
 endian = "little"
 
@@ -14,12 +15,11 @@ for filename in os.scandir("./assets"):
         print(filename.path)
 
         with open(filename.path, 'rb') as bundle, open(filename.path.replace("assets", "decompressed_assets"), 'wb') as new_bundle:
-            total_decompressed_size = int.from_bytes(bundle.read(4), endian) # Total size once decompressed
-            if total_decompressed_size == 0: # PS3 bundles start with 00 00 00 00
+            total_size_bytes = bundle.read(8) # Total size once decompressed
+            total_size = int.from_bytes(total_size_bytes, endian)
+            if total_size > 2**32: # Problematic if the package is >2^32 bytes once decompressed, but means big endian PS3/X360 bundles can be decompressed as well
                 endian = "big"
-                total_decompressed_size = int.from_bytes(bundle.read(4), endian)
-            else:
-                bundle.read(4) # Size of previous (why?) zlib chunk once decompressed, ignored because it's not needed and isn't present for uncompressed chunks.
+                total_size = int.from_bytes(total_size_bytes, endian)
 
             while True:
                 zlib_chunk_size = int.from_bytes(bundle.read(4), endian) # Size of next zlib chunk
@@ -30,11 +30,11 @@ for filename in os.scandir("./assets"):
                 data = bundle.read(zlib_chunk_size)
 
                 try:
-                    data = zlib.decompress(data, wbits=zlib.MAX_WBITS|32)[:total_decompressed_size] # Trim off excess bytes from last chunk
+                    data = zlib.decompress(data, wbits=zlib.MAX_WBITS|32)[:total_size] # Trim off excess bytes from last chunk
                     new_bundle.write(data)
                     
                     this_decompressed_size = len(data)
                 except zlib.error: # Uncompressed
                     new_bundle.write(data)
 
-                total_decompressed_size -= this_decompressed_size
+                total_size -= this_decompressed_size
