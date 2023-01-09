@@ -35,7 +35,6 @@ for filename in os.scandir("./assets"):
                     
                     this_decompressed_size = len(data)
                 except zlib.error: # Uncompressed
-                    print(data[:4].hex())
                     new_bundle.write(data)
 
                 total_decompressed_size -= this_decompressed_size
