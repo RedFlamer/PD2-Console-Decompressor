@@ -6,10 +6,12 @@ import zlib
 # For every chunk:
 # uint32 compressed_chunk_size (size of next zlib chunk)
 # byte[] chunk
-# uint32 uncompressed_chunk_size (present only if last chunk was compressed)
+# uint32 decompressed_chunk_size (present only if last chunk was compressed, always little endian)
+
+DECOMPRESSED_CHUNK_SIZE = 2**16
 
 for filename in os.scandir("./assets"):
-    if filename.is_file() and (filename.path.find("_h.bundle") != -1 or filename.path.find("stream_") == -1 and filename.path.find("all_") == -1 and filename.path.find(".bundle") != 1): # package headers/data or all_x/stream_x headers
+    if filename.is_file() and (filename.path.find(".bundle") != -1 and filename.path.find("stream_") == -1 and filename.path.find("all_") == -1): # package headers/data or all_x/stream_x headers
         print(filename.path)
 
         with open(filename.path, 'rb') as bundle, open(filename.path.replace("assets", "decompressed_assets"), 'wb') as new_bundle:
@@ -29,12 +31,9 @@ for filename in os.scandir("./assets"):
                 this_decompressed_size = zlib_chunk_size
                 data = bundle.read(zlib_chunk_size)
 
-                try:
-                    data = zlib.decompress(data, wbits=zlib.MAX_WBITS|32)[:total_size] # Trim off excess bytes from last chunk
-                    new_bundle.write(data)
-                    
-                    this_decompressed_size = len(data)
-                except zlib.error: # Uncompressed
-                    new_bundle.write(data)
+                if zlib_chunk_size != DECOMPRESSED_CHUNK_SIZE: # Compressed chunk
+                    data = zlib.decompress(data, wbits=zlib.MAX_WBITS|32, bufsize=DECOMPRESSED_CHUNK_SIZE)[:total_size]
+                    this_decompressed_size = len(data) # Or use decompressed_chunk_size
 
+                new_bundle.write(data)
                 total_size -= this_decompressed_size
